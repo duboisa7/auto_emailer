@@ -1,0 +1,275 @@
+---
+title: "Sending Emails in R"
+author: "Aubrey DuBois"
+date: "2023-11-17"
+output: html_document
+---
+
+## Packages
+```{r load packages used}
+
+pacman::p_load(
+               #tidyverse, # keeping tidy
+               readxl, # importing excel data 
+               here, # referencing file locations
+               glue, # format and interpolate strings
+               Microsoft365R, # interacting with M365 suite using R
+               blastula, # easily send nicely formatted HTML emails,
+               lorem # lorem ipsum-styled text generator
+               )
+```
+
+## Read in email recipient data
+
+df contains the names, emails, gift card codes, and gift card amounts for each research participant.
+
+```{r read in data}
+
+df <- read_xlsx(here("data", "participant_info.xlsx"), sheet = 1)
+
+View(df)
+
+```
+
+## Login to Outlook
+
+Running the line below takes you to your sign-in page on your system's browser.
+
+Login and give Azure any necessary permissions.  It should ask you if you want to create a folder called *AzureR* to store your credentials so you don't have to login each time.
+
+```{r get access token, login}
+
+outl <- get_business_outlook()
+
+```
+
+## Create and send basic HTML email
+
+Use a for loop to create a personalized email message for each participant.
+
+```{r create and send messages for recipients}
+
+
+for (i in 1:nrow(df)) {
+ 
+# Creates an HTML message using name and code data from participant data frame   
+  message <- glue(
+    "Hi  {df$first_name[i]}, <br><br>
+    
+    Thank you for participating in our study on ham sandwiches!<br>
+    Here is the claim code for your ${df$amount[i]} Amazon gift card:    <b>{df$claim_code[i]}</b>. <br>
+    Please visit https://www.amazon.com/gc/redeem to redeem. <br><br>
+    
+    Best, <br><br>
+    
+    MSU Sensory Lab"
+  )
+
+
+# Creates email using message created above and email addresses listed in data frame
+outl$create_email(message,
+                  content_type = "html", # text format is default
+                  bcc = df$email[i],
+                  subject = "Compensation for Your Recent MSU Sensory Lab Taste Test",
+                  reply_to = "sensory@msu.edu",
+                  send_now = FALSE # if send_now = FALSE, puts emails in drafts
+                  )
+
+}
+
+
+```
+
+
+# Sending More Advanced Formatted Emails in R with blastula + Microsoft365R
+
+
+Before creating the message, any images that will be embedded in the email are made into strings of HTML.
+
+```{r add email images}
+
+lab_logo <- add_image(
+  file = here("images", "lab_logo.svg"),
+  alt = "MSU Food Sensory Lab logo",
+  width = 320,
+  align = "center",
+  float = "none"
+)
+
+msu_logo <- add_image(
+  file = here("images", "header_logo_no_helmet.png"),
+  alt = "Michigan State University",
+  width = 320,
+  align = "center",
+  float = "none"
+)
+
+```
+
+## Create email, format with blastula
+
+```{r create blastula-formatted email}
+
+blastula_email <- compose_email(
+
+  header = md( # interprets text as markdown-formatted
+    glue(
+    "{msu_logo}
+    {lab_logo}"
+  )),
+  
+  body = md(
+    glue(
+    
+    "Hi  {df$first_name[10]},
+    
+    Thank you for participating in our study on ham sandwiches!
+    Here is the claim code for your ${df$amount[10]} Amazon gift card: **{df$claim_code[10]}**. Please visit https://www.amazon.com/gc/redeem to redeem.
+    
+    Best,
+    
+    MSU Sensory Lab"
+    
+  )),
+
+  footer = blocks(
+    block_text("Find us on social media:",
+               align = "center"),
+    
+    block_social_links(
+      
+      social_link(
+        service = "instagram",
+        link = "https://www.instagram.com/msufoodsensory",
+        variant = "color"),
+      social_link(
+        service = "facebook",
+        link = "https://www.facebook.com/msufoodsensory",
+        variant = "color"),
+      social_link(
+        service = "reddit",
+        link = "https://www.reddit.com/u/msufoodsensory",
+        variant = "color"),
+      social_link(
+        service = "twitter",
+        link = "https://www.twitter.com/msufoodsensory",
+        variant = "color") #,
+    #  social_link(
+    #    service = "tiktok",
+    #    link = "https://www.tiktok.com/msufoodsensorylab",
+    #    variant = "color")
+    )
+  )
+)
+
+
+```
+
+# Send blastula formatted email using Microsoft365R outlook environment
+
+```{r send blastula email}
+
+outl$create_email(blastula_email,
+                  content_type = "html",
+                  bcc = "duboisa7@msu.edu",
+                  subject = "Thank You for Your Participation in Our Taste Test!",
+                  send_now = FALSE) # set to TRUE if you want it to auto-send instead of going into drafts
+   
+```
+
+## More formatting fun with blastula - Newsletter
+
+```{r format newsletter email with blastula}
+
+newsletter <- compose_email(
+
+  header = md(
+    glue(
+    "# Michigan State University
+    {header_img}"
+  )),
+  
+  body = 
+    blocks(
+      block_title("November 2023 Lab Newsletter"),
+      block_spacer(),
+      block_text(
+        "This is an example of how blastula could be used to create a newsletter that could be sent out to a listserv. This email has a lot more formatting and information.  Blah blah blah, check out all the great things happening in the food sensory lab at Michigan State University. The lab has been very busy doing lots of science.  Take a look at all the interesting, awesome things the lab has been doing. Blah blah blah. I'm typing up a very interesting newsletter with a great introduction of how awesome the lab is. Now I am just going to copy and paste what I just typed to make this part longer.This is an example of how blastula could be used to create a newsletter that could be sent out to a listserv. This email has a lot more formatting and information.  Blah blah blah, check out all the great things happening in the food sensory lab at Michigan State University. Blah blah blah.  The lab has been very busy doing lots of science.  Take a look at all the interesting, awesome things the lab has been doing. Blah blah blah. I'm typing up a very interesting newsletter with a great introduction of how awesome the lab is. This email has a lot more formatting and information.  Blah blah blah, check out all the great things happening in the food sensory lab at Michigan State University. Blah blah blah.  The lab has been very busy doing lots of science.  Take a look at all the interesting, awesome things the lab has been doing. Blah blah blah. I'm typing up a very interesting newsletter with a great introduction of how awesome the lab is."
+      ),
+      
+      block_articles(
+        article(
+            image = "https://i.ibb.co/cyjjBrb/Microsoft-Teams-image-2.jpg",
+            title = "Community Engagement",
+            content =
+             ipsum(paragraphs = 1, sentences = 10) 
+            # ipsum() is just to generate random text for purposes of showing the newsletter layout.  
+            # For actual text, I would use content = glue("Here is all my content.")
+          ),
+          article(
+            image = "https://i.ibb.co/yFx5L9p/image-20230823-132256-e1ce7ef6.jpg",
+            title = "Recent Work",
+            content =
+             ipsum(paragraphs = 1, sentences = 4)
+          ),
+          article(
+             image = "https://i.ibb.co/hfWrVkQ/image-20230823-122637-5a806076.jpg",
+             title = "Upcoming Events",
+             content =
+              ipsum(paragraphs = 1, sentences = 10)
+          )),
+      
+      block_spacer(),
+      
+      block_title(glue("This is Another Section of the Newsletter")),
+      
+      block_text(
+        ipsum(paragraphs = 1, sentences = 10)
+      ),
+      
+      block_articles(
+          article(
+             image = "https://i.ibb.co/9wRdpt0/PXL-20230915-134112603.jpg",
+             title = "Learn More",
+             content =
+               ipsum(paragraphs = 1, sentences = 5)
+          ),
+          article(
+             image = "https://i.ibb.co/XF1QYqY/PXL-20230813-175628144.jpg",
+             title = "Something Else",
+             content =
+              ipsum(paragraphs = 1, sentences = 5)
+          )
+    )),
+
+  footer = blocks(
+    block_text("Find us on social media:",
+               align = "center"),
+    
+    block_social_links(
+      
+      social_link(
+        service = "instagram",
+        link = "https://www.instagram.com/msufoodsensory",
+        variant = "color"),
+      social_link(
+        service = "facebook",
+        link = "https://www.facebook.com/msufoodsensory",
+        variant = "color"),
+      social_link(
+        service = "reddit",
+        link = "https://www.reddit.com/u/msufoodsensory",
+        variant = "color"),
+      social_link(
+        service = "twitter",
+        link = "https://www.twitter.com/msufoodsensory",
+        variant = "color") #,
+    #  social_link(
+    #    service = "tiktok",
+    #    link = "https://www.tiktok.com/msufoodsensorylab",
+    #    variant = "color")
+    )
+  )
+)
+
+```
